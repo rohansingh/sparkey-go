@@ -1,7 +1,6 @@
 package sparkey
 
 import (
-	_ "fmt"
 	"os"
 	"testing"
 )

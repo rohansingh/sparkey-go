@@ -1,6 +1,5 @@
 package sparkey
 
-// #cgo LDFLAGS: -lsparkey
 // #include <stdlib.h>
 // #include <sparkey/sparkey.h>
 import "C"
