@@ -21,9 +21,12 @@ func TestCreateLog_NoCompression(t *testing.T) {
 	setup()
 	defer teardown()
 
-	_, err := CreateLog(testFilename, None, 0)
-	if err != nil {
+	if _, err := CreateLog(testFilename, None, 0); err != nil {
 		t.Error(err)
+	}
+
+	if _, err := os.Stat(testFilename); err != nil {
+		t.Errorf("checking log file: %s", err)
 	}
 }
 
@@ -31,9 +34,12 @@ func TestCreateLog_Snappy(t *testing.T) {
 	setup()
 	defer teardown()
 
-	_, err := CreateLog(testFilename, Snappy, 12)
-	if err != nil {
+	if _, err := CreateLog(testFilename, Snappy, 12); err != nil {
 		t.Error(err)
+	}
+
+	if _, err := os.Stat(testFilename); err != nil {
+		t.Errorf("checking log file: %s", err)
 	}
 }
 

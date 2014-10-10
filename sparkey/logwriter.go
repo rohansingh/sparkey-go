@@ -11,6 +11,8 @@ import (
 // LogWriter adds entries to a log file. This struct holds a reference to the underlying C object.
 type LogWriter struct {
 	native **C.struct_sparkey_logwriter
+
+	Filename string
 }
 
 // CreateLog creates a new Sparkey log file, possibly overwriting an existing one, and returns
@@ -30,7 +32,7 @@ func CreateLog(filename string, ct CompressionType, compressionBlockSize int) (*
 		return nil, err
 	}
 
-	return &LogWriter{native: &n}, nil
+	return &LogWriter{native: &n, Filename: filename}, nil
 }
 
 // AppendLog returns a LogWriter for appending to an existing Sparkey log file.
@@ -45,7 +47,7 @@ func AppendLog(filename string) (*LogWriter, error) {
 		return nil, err
 	}
 
-	return &LogWriter{native: &n}, nil
+	return &LogWriter{native: &n, Filename: filename}, nil
 }
 
 // Flush and close the log file.
