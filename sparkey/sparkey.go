@@ -1,13 +1,10 @@
 package sparkey
 
 // #cgo LDFLAGS: -lsparkey
-// #include <stdlib.h>
 // #include <sparkey/sparkey.h>
 import "C"
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // SparkeyError represents an error returned by the Sparkey C library.
 type SparkeyError struct {
@@ -80,4 +77,39 @@ func (ct CompressionType) c() C.sparkey_compression_type {
 	default:
 		return C.SPARKEY_COMPRESSION_NONE
 	}
+}
+
+func (ct *CompressionType) load(c C.sparkey_compression_type) error {
+	switch c {
+	case C.SPARKEY_COMPRESSION_NONE:
+		*ct = None
+	case C.SPARKEY_COMPRESSION_SNAPPY:
+		*ct = Snappy
+	default:
+		return fmt.Errorf("unknown sparkey_compression_type: %v", c)
+	}
+
+	return nil
+}
+
+// EntryType is the type of an entry in the Sparkey log file (i.e., PUT, DELETE).
+type EntryType int
+
+const (
+	_ EntryType = iota
+	Put
+	Delete
+)
+
+func (et *EntryType) load(c C.sparkey_entry_type) error {
+	switch c {
+	case C.SPARKEY_ENTRY_PUT:
+		*et = Put
+	case C.SPARKEY_ENTRY_DELETE:
+		*et = Delete
+	default:
+		return fmt.Errorf("unknown sparkey_entry_type: %v", c)
+	}
+
+	return nil
 }
