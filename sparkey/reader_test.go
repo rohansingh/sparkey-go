@@ -19,8 +19,11 @@ func TestReader(t *testing.T) {
 	lw.Put(key, val)
 	lw.Close()
 
+	// write a hash file
+	WriteHash(testHashFilename, testFilename, Auto)
+
 	// create a reader for that file
-	re, err := NewReader(testFilename, "")
+	re, err := NewReader(testFilename, testHashFilename)
 	if err != nil {
 		t.Fatalf("creating new Reader: %v", err)
 	}
@@ -52,9 +55,10 @@ func TestReader(t *testing.T) {
 	}
 
 	// iterate to the first record and verify iterator state
-	if is, err := it.Next(); err != nil {
+	if err := it.Next(""); err != nil {
 		t.Fatalf("Iterator.Next: %v", err)
-	} else if is != Active {
+	}
+	if is, _ := it.State(); is != Active {
 		t.Errorf("iterator state is %v, want %v", is, Active)
 	}
 
@@ -67,9 +71,10 @@ func TestReader(t *testing.T) {
 	}
 
 	// iterate to end and verify state
-	if is, err := it.Next(); err != nil {
+	if err := it.Next(""); err != nil {
 		t.Fatalf("Iterator.Next: %v", err)
-	} else if is != Closed {
+	}
+	if is, _ := it.State(); is != Closed {
 		t.Errorf("iterator state is %v, want %v", is, Closed)
 	}
 }

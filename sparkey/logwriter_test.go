@@ -6,15 +6,18 @@ import (
 )
 
 const (
-	testFilename string = "test.log"
+	testFilename     string = "test.log"
+	testHashFilename string = "test.hash"
 )
 
 func setup() {
 	os.Remove(testFilename)
+	os.Remove(testHashFilename)
 }
 
 func teardown() {
 	os.Remove(testFilename)
+	os.Remove(testHashFilename)
 }
 
 func TestCreateLog_NoCompression(t *testing.T) {

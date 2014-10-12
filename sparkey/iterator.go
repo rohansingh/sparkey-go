@@ -1,9 +1,14 @@
 package sparkey
 
+// #include <stdlib.h>
 // #include <sparkey/sparkey.h>
 import "C"
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"unsafe"
+)
 
 // Iterator is a stateful iterator that is associated with a specific Reader. It holds a reference
 // to the underlying C iterator as well.
@@ -62,6 +67,11 @@ func newIterator(lr **C.struct_sparkey_logreader, hr **C.struct_sparkey_hashread
 	return iter, nil
 }
 
+// Close the iterator.
+func (iter *Iterator) Close() {
+	C.sparkey_logiter_close(iter.nativeLI)
+}
+
 // State returns the IterState of the Iterator.
 func (iter *Iterator) State() (IterState, error) {
 	var is IterState
@@ -75,51 +85,84 @@ func (iter *Iterator) State() (IterState, error) {
 }
 
 // Next iterates to the next entry and updates the internal state of the iterator to Active, Closed,
-// or Invalid.
-func (iter *Iterator) Next() (IterState, error) {
+// or Invalid. If the associated Reader supports random lookups and a key is provided, the iterator
+// moves directly to the provided key.
+func (iter *Iterator) Next(key string) error {
+	if iter.nativeHR == nil && key != "" {
+		return errors.New("key was specified but this iterator doesn't support random lookups")
+	}
+
+	iter.clear()
+
+	var r C.sparkey_returncode
+	if key != "" {
+		ckey := unsafe.Pointer(C.CString(key))
+		defer C.free(ckey)
+
+		r, _ = C.sparkey_hash_get(
+			*iter.nativeHR,
+			(*C.uint8_t)(ckey),
+			C.uint64_t(len(key)),
+			*iter.nativeLI,
+		)
+	} else if iter.nativeHR != nil {
+		// We have a hashreader, so use it for hashnext()
+		r, _ = C.sparkey_logiter_hashnext(*iter.nativeLI, *iter.nativeHR)
+	} else {
+		// No hashreader available, just use next()
+		r, _ = C.sparkey_logiter_next(*iter.nativeLI, *iter.nativeLR)
+	}
+
+	if err := toErr(r); err != nil {
+		return err
+	}
+
+	if is, err := iter.State(); is != Active {
+		return err
+	}
+
+	return iter.readKeyVal(key)
+}
+
+func (iter *Iterator) clear() {
 	iter.Key = ""
 	iter.Value = ""
 	iter.Type = 0
+}
 
-	if iter.nativeHR != nil {
-		// We have a hashreader, so use it for hashnext()
-		C.sparkey_logiter_hashnext(*iter.nativeLI, *iter.nativeHR)
-	} else {
-		// No hashreader available, just use next()
-		C.sparkey_logiter_next(*iter.nativeLI, *iter.nativeLR)
-	}
-
-	is, err := iter.State()
-	if is != Active {
-		return is, err
-	}
-
+func (iter *Iterator) readKeyVal(k string) error {
 	var key, val cbytes
 
-	r, _ := C.sparkey_logiter_keychunk(
-		*iter.nativeLI,
-		*iter.nativeLR,
-		C.uint64_t(^uint64(0)),
-		&key.buffer,
-		&key.length,
-	)
-	r2, _ := C.sparkey_logiter_valuechunk(
+	if k == "" {
+		r, _ := C.sparkey_logiter_keychunk(
+			*iter.nativeLI,
+			*iter.nativeLR,
+			C.uint64_t(^uint64(0)),
+			&key.buffer,
+			&key.length,
+		)
+		if err := toErr(r); err != nil {
+			return err
+		}
+
+		iter.Key = key.String()
+	} else {
+		// key is known from lookup, just use that
+		iter.Key = k
+	}
+
+	r, _ := C.sparkey_logiter_valuechunk(
 		*iter.nativeLI,
 		*iter.nativeLR,
 		C.uint64_t(^uint64(0)),
 		&val.buffer,
 		&val.length,
 	)
-
 	if err := toErr(r); err != nil {
-		return is, err
-	}
-	if err := toErr(r2); err != nil {
-		return is, err
+		return err
 	}
 
-	iter.Key = key.String()
 	iter.Value = val.String()
 
-	return is, nil
+	return nil
 }
