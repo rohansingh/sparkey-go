@@ -4,6 +4,18 @@ import (
 	"testing"
 )
 
+var readerTestData = struct {
+	ct        CompressionType
+	blockSize int
+	key       string
+	val       string
+}{
+	Snappy,
+	16,
+	"abc",
+	"12345",
+}
+
 func TestReader(t *testing.T) {
 	setup()
 	defer teardown()
@@ -55,7 +67,7 @@ func TestReader(t *testing.T) {
 	}
 
 	// iterate to the first record and verify iterator state
-	if err := it.Next(""); err != nil {
+	if err := it.Next(); err != nil {
 		t.Fatalf("Iterator.Next: %v", err)
 	}
 	if is, _ := it.State(); is != Active {
@@ -71,7 +83,7 @@ func TestReader(t *testing.T) {
 	}
 
 	// iterate to end and verify state
-	if err := it.Next(""); err != nil {
+	if err := it.Next(); err != nil {
 		t.Fatalf("Iterator.Next: %v", err)
 	}
 	if is, _ := it.State(); is != Closed {

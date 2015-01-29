@@ -84,34 +84,24 @@ func (iter *Iterator) State() (IterState, error) {
 	return is, is.load(cis)
 }
 
-// Next iterates to the next entry and updates the internal state of the iterator to Active, Closed,
-// or Invalid. If the associated Reader supports random lookups and a key is provided, the iterator
-// moves directly to the provided key.
-func (iter *Iterator) Next(key string) error {
-	if iter.nativeHR == nil && key != "" {
-		return errors.New("key was specified but this iterator doesn't support random lookups")
+// Get moves the iterator to the specified key and updates its internal state to Active, Closed, or
+// Inactive. This only works if this iterator supports random lookups.
+func (iter *Iterator) Get(key string) error {
+	if iter.nativeHR == nil {
+		return errors.New("this iterator doesn't support random lookups")
 	}
 
 	iter.clear()
 
-	var r C.sparkey_returncode
-	if key != "" {
-		ckey := unsafe.Pointer(C.CString(key))
-		defer C.free(ckey)
+	ckey := unsafe.Pointer(C.CString(key))
+	defer C.free(ckey)
 
-		r, _ = C.sparkey_hash_get(
-			*iter.nativeHR,
-			(*C.uint8_t)(ckey),
-			C.uint64_t(len(key)),
-			*iter.nativeLI,
-		)
-	} else if iter.nativeHR != nil {
-		// We have a hashreader, so use it for hashnext()
-		r, _ = C.sparkey_logiter_hashnext(*iter.nativeLI, *iter.nativeHR)
-	} else {
-		// No hashreader available, just use next()
-		r, _ = C.sparkey_logiter_next(*iter.nativeLI, *iter.nativeLR)
-	}
+	r, _ := C.sparkey_hash_get(
+		*iter.nativeHR,
+		(*C.uint8_t)(ckey),
+		C.uint64_t(len(key)),
+		*iter.nativeLI,
+	)
 
 	if err := toErr(r); err != nil {
 		return err
@@ -122,6 +112,30 @@ func (iter *Iterator) Next(key string) error {
 	}
 
 	return iter.readKeyVal(key)
+}
+
+// Next iterates to the next entry and updates the internal state of the iterator to Active, Closed,
+// or Invalid.
+func (iter *Iterator) Next() error {
+	iter.clear()
+
+	var r C.sparkey_returncode
+	if iter.nativeHR != nil {
+		// We have a hashreader, so use it for hashnext()
+		r, _ = C.sparkey_logiter_hashnext(*iter.nativeLI, *iter.nativeHR)
+	} else {
+		// No hashreader available, just use next()
+		r, _ = C.sparkey_logiter_next(*iter.nativeLI, *iter.nativeLR)
+	}
+
+	if err := toErr(r); err != nil {
+		return err
+	}
+	if is, err := iter.State(); is != Active {
+		return err
+	}
+
+	return iter.readKeyVal("")
 }
 
 func (iter *Iterator) clear() {
